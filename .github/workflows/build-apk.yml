@@ -1,0 +1,64 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'app/**'
+      - 'ci/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct app HTML
+        shell: bash
+        run: |
+          mkdir -p app/src/main/assets
+          cat ci/index.part* > /tmp/index.html.xz.b64
+          base64 -d /tmp/index.html.xz.b64 > /tmp/index.html.xz
+          xz -dc /tmp/index.html.xz > app/src/main/assets/index.html
+          test -s app/src/main/assets/index.html
+          echo "9a6883a94dc0fc2d234532458c25ff82ffcda5fc478e23fc830c7bc1f92c958c  app/src/main/assets/index.html" | sha256sum -c -
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.1"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Prepare APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk TabuadaQuest.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TabuadaQuest-APK
+          path: TabuadaQuest.apk
+          retention-days: 30
