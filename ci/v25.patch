@@ -1,0 +1,243 @@
+--- a/index.html
++++ b/index.html
+@@ -495,6 +495,19 @@
+ .mobile-customizer .opt.base-choice .oicon{font-size:34px}
+ .mobile-customizer .opt.base-choice.selected{background:linear-gradient(135deg,#f1efff,#eef5ff);border-color:#7a6cff;box-shadow:0 0 0 2px rgba(122,108,255,.15)}
+ 
++
++/* Módulo competitivo */
++.competitive-card{border:1px solid #d7dcff;background:linear-gradient(145deg,#f7f8ff,#fff7dd)}
++.competitive-page{max-width:820px;margin:0 auto}
++.comp-hero{background:linear-gradient(135deg,#5a55e7,#8d6cf1);color:#fff;border-radius:26px;padding:22px;box-shadow:0 18px 45px rgba(83,76,205,.2)}
++.comp-hero h2{margin:0 0 6px;font-size:28px}.comp-hero p{margin:0;opacity:.9}
++.comp-box{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 12px 32px rgba(42,52,92,.08)}
++.comp-name{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:14px;font:inherit;font-weight:700;outline:none}.comp-name:focus{border-color:#7770ef;box-shadow:0 0 0 3px rgba(119,112,239,.12)}
++.comp-rules{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.comp-rule{background:#f7f8ff;border-radius:16px;padding:12px;text-align:center}.comp-rule b{display:block;font-size:13px}.comp-rule small{color:var(--muted)}
++.comp-topline{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px}.comp-score{font-weight:900;font-size:18px}.comp-q{font-size:42px;text-align:center;font-weight:900;margin:24px 0 18px}.comp-timerbar{height:10px;background:#eef0f7;border-radius:999px;overflow:hidden}.comp-timerbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#37c887,#f1c64b,#ef6d6d);transition:width .08s linear}.comp-answers{display:grid;grid-template-columns:1fr 1fr;gap:10px}.comp-answer{padding:16px;border:1px solid var(--line);border-radius:16px;background:#fff;font:inherit;font-weight:900;font-size:20px;cursor:pointer}.comp-answer:active{transform:scale(.98)}
++.comp-result{text-align:center}.comp-final-score{font-size:46px;font-weight:900;color:#5a55e7;margin:8px 0}.comp-place{font-size:22px;font-weight:900}.ranking-list{display:grid;gap:8px}.rank-row{display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:14px;background:#fff}.rank-pos{font-weight:900;text-align:center}.rank-name{font-weight:800}.rank-meta{font-size:11px;color:var(--muted)}.rank-score{font-weight:900;color:#5a55e7}.comp-muted{color:var(--muted);font-size:12px}.comp-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
++@media(max-width:600px){.comp-rules{grid-template-columns:1fr}.comp-q{font-size:36px}.comp-answers{grid-template-columns:1fr 1fr}.comp-hero{padding:18px}.comp-box{padding:14px}.rank-row{grid-template-columns:38px 1fr auto}}
++
+ </style>
+ </head>
+ <body>
+@@ -653,6 +666,12 @@
+             <h3>Quiz geral</h3>
+             <p>Mistura apenas tabuadas já estudadas e evita repetir perguntas recentes.</p>
+             <button class="btn green" onclick="startGeneralQuiz()">Começar quiz geral</button>
++          </div>
++          <div class="quiz-option competitive-card">
++            <div class="bigicon">🏆</div>
++            <h3>Modo competitivo</h3>
++            <p>10 perguntas das tabuadas de 1 a 10. Pontos por acerto e velocidade, com ranking separado.</p>
++            <button class="btn primary" onclick="openCompetitive()">Entrar na competição</button>
+           </div>
+           <div class="quiz-option">
+             <div class="bigicon">🧠</div>
+@@ -692,6 +711,58 @@
+           </div>
+           <button id="rewardContinueBtn" class="btn primary" onclick="continueAfterReward()">Continuar jornada</button>
+           <button class="btn soft" style="margin-left:6px" onclick="returnToPlay()">Ver jornada</button>
++        </div>
++      </div>
++    </section>
++
++    <!-- COMPETITIVE -->
++    <section id="competitive" class="page">
++      <div class="competitive-page">
++        <div class="comp-hero">
++          <h2>🏆 Arena da Tabuada</h2>
++          <p>Um desafio independente da Jornada. Aqui vale rapidez, precisão e ranking.</p>
++        </div>
++
++        <div id="compStart" class="comp-box">
++          <h3 style="margin-top:0">Digite seu nome para competir</h3>
++          <input id="compName" class="comp-name" maxlength="18" placeholder="Seu nome" autocomplete="off">
++          <div class="comp-rules">
++            <div class="comp-rule"><b>✅ Resposta certa</b><small>100 pontos + bônus de velocidade</small></div>
++            <div class="comp-rule"><b>⚡ Quanto mais rápido</b><small>até +200 pontos por questão</small></div>
++            <div class="comp-rule"><b>❌ Resposta errada</b><small>-150 pontos</small></div>
++          </div>
++          <p class="comp-muted">São 10 perguntas, uma de cada tabuada de 1 a 10, em ordem aleatória. Cada pergunta tem 10 segundos.</p>
++          <div class="comp-actions">
++            <button class="btn primary" onclick="startCompetition()">▶ Começar desafio</button>
++            <button class="btn soft" onclick="navigate('play')">Voltar</button>
++          </div>
++        </div>
++
++        <div id="compGame" class="comp-box hidden">
++          <div class="comp-topline"><span id="compProgress">Pergunta 1/10</span><span class="comp-score">🏆 <span id="compScore">0</span> pts</span></div>
++          <div class="comp-timerbar"><i id="compTimerBar"></i></div>
++          <div id="compTimeText" class="comp-muted" style="text-align:right;margin-top:5px">10,0 s</div>
++          <div id="compQuestion" class="comp-q">2 × 4 = ?</div>
++          <div id="compAnswers" class="comp-answers"></div>
++          <div id="compFeedback" style="text-align:center;font-weight:800;min-height:24px;margin-top:12px"></div>
++        </div>
++
++        <div id="compResult" class="comp-box comp-result hidden">
++          <div style="font-size:46px">🏁</div>
++          <h2 style="margin:4px 0">Desafio concluído!</h2>
++          <div id="compFinalScore" class="comp-final-score">0 pts</div>
++          <div id="compPlace" class="comp-place"></div>
++          <p id="compSummary" class="comp-muted"></p>
++          <p id="compBestWhen" class="comp-muted" style="font-weight:700"></p>
++          <div class="comp-actions" style="justify-content:center">
++            <button class="btn primary" onclick="prepareCompetitionReplay()">Jogar novamente</button>
++            <button class="btn soft" onclick="navigate('play')">Voltar para Jogar</button>
++          </div>
++        </div>
++
++        <div class="comp-box">
++          <div class="section-head" style="margin-bottom:10px"><div><h3 style="margin:0">Ranking local</h3><p>Melhor resultado de cada nome neste aparelho.</p></div></div>
++          <div id="competitiveRanking" class="ranking-list"></div>
+         </div>
+       </div>
+     </section>
+@@ -1326,6 +1397,7 @@
+   document.getElementById('bottomNav').classList.remove('hidden');
+   document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+   if(page==='play') showJourneyHome();
++  if(page==='competitive') renderCompetitiveRanking();
+   window.scrollTo({top:0,behavior:'smooth'});
+ }
+ function continueLearning(){
+@@ -2881,6 +2953,140 @@
+   playSoundEffect('tap');
+ },{passive:true});
+ 
++
++/* Competitive module - independent from progression */
++const COMPETITIVE_KEY='tabuadaQuestCompetitiveV1';
++let compState={name:'',questions:[],index:0,score:0,correct:0,wrong:0,totalMs:0,startedAt:0,timer:null,locked:false};
++function loadCompetitiveRanking(){try{return JSON.parse(localStorage.getItem(COMPETITIVE_KEY)||'[]')}catch(e){return []}}
++function saveCompetitiveRanking(r){localStorage.setItem(COMPETITIVE_KEY,JSON.stringify(r))}
++function formatCompetitiveDateTime(ts){
++  if(!ts)return 'data não registrada';
++  try{
++    return new Date(ts).toLocaleString('pt-BR',{
++      day:'2-digit',month:'2-digit',year:'numeric',
++      hour:'2-digit',minute:'2-digit'
++    });
++  }catch(e){return 'data não registrada'}
++}
++function openCompetitive(){navigate('competitive');document.getElementById('compStart').classList.remove('hidden');document.getElementById('compGame').classList.add('hidden');document.getElementById('compResult').classList.add('hidden');renderCompetitiveRanking()}
++function competitiveQuestions(){const q=[];for(let table=1;table<=10;table++){const mult=1+Math.floor(Math.random()*10);q.push({table,mult,answer:table*mult})}return shuffle(q)}
++function startCompetition(){
++  const input=document.getElementById('compName');const name=(input.value||'').trim();
++  if(name.length<2){showToast('Digite um nome com pelo menos 2 letras.');return}
++  compState={name,questions:competitiveQuestions(),index:0,score:0,correct:0,wrong:0,totalMs:0,startedAt:0,timer:null,locked:false};
++  document.getElementById('compStart').classList.add('hidden');document.getElementById('compResult').classList.add('hidden');document.getElementById('compGame').classList.remove('hidden');
++  try{primeAudio()}catch(e){};showCompetitiveQuestion();
++}
++function showCompetitiveQuestion(){
++  clearInterval(compState.timer);compState.locked=false;
++  const q=compState.questions[compState.index];
++  document.getElementById('compProgress').textContent=`Pergunta ${compState.index+1}/10`;
++  document.getElementById('compScore').textContent=compState.score;
++  document.getElementById('compQuestion').textContent=`${q.table} × ${q.mult} = ?`;
++  document.getElementById('compFeedback').textContent='';
++  const grid=document.getElementById('compAnswers');grid.innerHTML='';
++  makeOptions(q.answer).forEach(v=>{const b=document.createElement('button');b.className='comp-answer';b.textContent=v;b.onclick=()=>answerCompetition(v);grid.appendChild(b)});
++  compState.startedAt=performance.now();
++  const bar=document.getElementById('compTimerBar'),txt=document.getElementById('compTimeText');
++  bar.style.width='100%';txt.textContent='10,0 s';
++  compState.timer=setInterval(()=>{const elapsed=performance.now()-compState.startedAt;const left=Math.max(0,10000-elapsed);bar.style.width=(left/100)+'%';txt.textContent=(left/1000).toFixed(1).replace('.',',')+' s';if(left<=0){clearInterval(compState.timer);answerCompetition(null,true)}},80);
++}
++function answerCompetition(value,timeout=false){
++  if(compState.locked)return;compState.locked=true;clearInterval(compState.timer);
++  const q=compState.questions[compState.index];const elapsed=Math.min(10000,performance.now()-compState.startedAt);compState.totalMs+=elapsed;
++  const ok=!timeout && Number(value)===q.answer;const fb=document.getElementById('compFeedback');
++  if(ok){const speed=Math.max(0,Math.round((10000-elapsed)/50));const earned=100+speed;compState.score+=earned;compState.correct++;fb.textContent=`✅ Certo! +${earned} pontos`;try{playSoundEffect('correct')}catch(e){}}
++  else{compState.score-=150;compState.wrong++;fb.textContent=timeout?'⏱️ Tempo esgotado! -150 pontos':`❌ Resposta correta: ${q.answer}. -150 pontos`;try{playSoundEffect('wrong')}catch(e){}}
++  document.getElementById('compScore').textContent=compState.score;
++  setTimeout(()=>{compState.index++;if(compState.index>=10)finishCompetition();else showCompetitiveQuestion()},650);
++}
++function finishCompetition(){
++  clearInterval(compState.timer);document.getElementById('compGame').classList.add('hidden');document.getElementById('compResult').classList.remove('hidden');
++  const avg=compState.totalMs/10;
++  let ranking=loadCompetitiveRanking();
++  const key=compState.name.toLocaleLowerCase('pt-BR');
++  const old=ranking.find(x=>x.key===key);
++  const now=Date.now();
++  const entry={
++    key,
++    name:compState.name,
++    score:compState.score,
++    correct:compState.correct,
++    wrong:compState.wrong,
++    totalMs:Math.round(compState.totalMs),
++    bestAt:now,
++    updatedAt:now,
++    attempts:(old?.attempts||0)+1
++  };
++
++  let isNewBest=!old;
++  if(old){
++    // Compatibilidade com rankings criados antes da V25.
++    if(!old.bestAt && old.updatedAt)old.bestAt=old.updatedAt;
++    const better=
++      entry.score>old.score ||
++      (entry.score===old.score && entry.correct>old.correct) ||
++      (entry.score===old.score && entry.correct===old.correct && entry.totalMs<old.totalMs);
++
++    if(better){
++      Object.assign(old,entry);
++      isNewBest=true;
++    }else{
++      old.attempts=entry.attempts;
++      isNewBest=false;
++    }
++  }else{
++    ranking.push(entry);
++  }
++
++  ranking.sort((a,b)=>b.score-a.score||b.correct-a.correct||a.totalMs-b.totalMs);
++  ranking=ranking.slice(0,50);
++  saveCompetitiveRanking(ranking);
++
++  const saved=ranking.find(x=>x.key===key);
++  const pos=ranking.findIndex(x=>x.key===key)+1;
++  document.getElementById('compFinalScore').textContent=`${compState.score} pts`;
++  document.getElementById('compPlace').textContent=pos?`Posição no ranking: ${pos}º`:'Resultado registrado';
++  document.getElementById('compSummary').textContent=`${compState.correct} acertos • ${compState.wrong} erros • média de ${(avg/1000).toFixed(2).replace('.',',')} s por pergunta`;
++
++  const bestWhen=document.getElementById('compBestWhen');
++  if(bestWhen && saved){
++    bestWhen.textContent=isNewBest
++      ? `🏅 Novo melhor resultado registrado em ${formatCompetitiveDateTime(saved.bestAt)}`
++      : `🕒 Seu melhor resultado continua sendo o de ${formatCompetitiveDateTime(saved.bestAt)}`;
++  }
++
++  try{playSoundEffect('complete')}catch(e){}
++  renderCompetitiveRanking();
++}
++function renderCompetitiveRanking(){
++  const box=document.getElementById('competitiveRanking');
++  if(!box)return;
++  const r=loadCompetitiveRanking();
++  box.innerHTML='';
++  if(!r.length){
++    box.innerHTML='<div class="comp-muted" style="text-align:center;padding:18px">Ainda não há resultados. Seja o primeiro!</div>';
++    return;
++  }
++
++  let changed=false;
++  r.forEach(x=>{
++    if(!x.bestAt && x.updatedAt){x.bestAt=x.updatedAt;changed=true}
++  });
++  if(changed)saveCompetitiveRanking(r);
++
++  r.forEach((x,i)=>{
++    const d=document.createElement('div');
++    d.className='rank-row';
++    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}º`;
++    const when=formatCompetitiveDateTime(x.bestAt||x.updatedAt);
++    d.innerHTML=`<div class="rank-pos">${medal}</div><div><div class="rank-name"></div><div class="rank-meta">${x.correct}/10 acertos • ${(x.totalMs/10000).toFixed(1).replace('.',',')} s total • ${x.attempts||1} tentativa(s)<br>📅 Melhor resultado: ${when}</div></div><div class="rank-score">${x.score} pts</div>`;
++    d.querySelector('.rank-name').textContent=x.name;
++    box.appendChild(d);
++  });
++}
++function prepareCompetitionReplay(){document.getElementById('compResult').classList.add('hidden');document.getElementById('compStart').classList.remove('hidden');document.getElementById('compName').value=compState.name||'';document.getElementById('compName').focus()}
++
+ </script>
+ </body>
+ </html>
