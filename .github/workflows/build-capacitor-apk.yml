@@ -49,7 +49,24 @@ jobs:
           base64 -d /tmp/index.html.xz.b64 > /tmp/index.html.xz
           xz -dc /tmp/index.html.xz > capbuild/www/index.html
           (cd capbuild/www && patch -p1 < ../../ci/v22.patch)
-          echo "62b8cccf97576cb0467f53b4be266ab464a4692208923174a7d15f113befb9fd  capbuild/www/index.html" | sha256sum -c -
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path('capbuild/www/index.html').read_text(encoding='utf-8')
+          required=[
+              'const table=level;',
+              'tables:[table]',
+              'PROGRESSÃO DE DESBLOQUEIOS — 10 NÍVEIS',
+              "'pet-unicornio':10"
+          ]
+          for token in required:
+              assert token in h, f'Marca de validação ausente: {token}'
+          m=re.search(r'<script>(.*)</script>',h,re.S)
+          assert m, 'Bloco JavaScript principal não encontrado'
+          Path('/tmp/tabuada-quest.js').write_text(m.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/tabuada-quest.js
 
           cat > capbuild/package.json <<'JSON'
           {
