@@ -8,10 +8,14 @@ on:
       - 'app/**'
       - '.github/workflows/android-smoke-test.yml'
 
+concurrency:
+  group: android-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -38,7 +42,7 @@ jobs:
           export ANDROID_HOME=/usr/local/lib/android/sdk
           export ANDROID_SDK_ROOT=$ANDROID_HOME
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.1" "platform-tools" "emulator" "system-images;android-33;google_apis;x86_64"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.1" "platform-tools" "emulator" "system-images;android-33;default;x86_64"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -52,25 +56,27 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
-          target: google_apis
+          target: default
           arch: x86_64
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: |
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
             adb shell am force-stop com.tabuadaquest.app
             adb shell am start -W -n com.tabuadaquest.app/.MainActivity
             sleep 5
-            adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity|com.tabuadaquest.app" || true
             adb logcat -d -v brief > smoke-logcat.txt
-            if grep -E "FATAL EXCEPTION|AndroidRuntime.*com.tabuadaquest.app|Process: com.tabuadaquest.app" smoke-logcat.txt; then
+            adb shell dumpsys activity activities > activity-state.txt
+            if grep -E "FATAL EXCEPTION|Process: com.tabuadaquest.app" smoke-logcat.txt; then
               echo "Application crash detected"
               cat smoke-logcat.txt
               exit 1
             fi
-            if ! adb shell dumpsys activity activities | grep -q "com.tabuadaquest.app/.MainActivity"; then
+            if ! grep -q "com.tabuadaquest.app/.MainActivity" activity-state.txt; then
               echo "MainActivity is not active"
+              cat activity-state.txt
               cat smoke-logcat.txt
               exit 1
             fi
@@ -81,5 +87,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-smoke-logs
-          path: smoke-logcat.txt
+          path: |
+            smoke-logcat.txt
+            activity-state.txt
           retention-days: 7
