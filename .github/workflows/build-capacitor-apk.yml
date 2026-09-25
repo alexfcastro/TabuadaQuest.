@@ -48,12 +48,13 @@ jobs:
           cat ci/v21.part* > /tmp/index.html.xz.b64
           base64 -d /tmp/index.html.xz.b64 > /tmp/index.html.xz
           xz -dc /tmp/index.html.xz > capbuild/www/index.html
-          echo "59d8cb73acce55fccc330e956f74ec323497f057f64e69b93bcbf4dab688aa4a  capbuild/www/index.html" | sha256sum -c -
+          (cd capbuild/www && patch -p1 < ../../ci/v22.patch)
+          echo "62b8cccf97576cb0467f53b4be266ab464a4692208923174a7d15f113befb9fd  capbuild/www/index.html" | sha256sum -c -
 
           cat > capbuild/package.json <<'JSON'
           {
             "name": "tabuada-quest",
-            "version": "1.2.1",
+            "version": "1.2.2",
             "private": true,
             "dependencies": {
               "@capacitor/core": "8.5.2",
@@ -84,8 +85,8 @@ jobs:
           npx cap add android
           npx cap sync android
 
-          sed -i 's/versionCode 1/versionCode 7/' android/app/build.gradle || true
-          sed -i 's/versionName "1.0"/versionName "1.2.1"/' android/app/build.gradle || true
+          sed -i 's/versionCode 1/versionCode 8/' android/app/build.gradle || true
+          sed -i 's/versionName "1.0"/versionName "1.2.2"/' android/app/build.gradle || true
 
       - name: Build Capacitor APK
         working-directory: capbuild/android
@@ -94,12 +95,12 @@ jobs:
       - name: Prepare APK
         shell: bash
         run: |
-          cp capbuild/android/app/build/outputs/apk/debug/app-debug.apk TabuadaQuest-Capacitor-1.2.1.apk
-          test -s TabuadaQuest-Capacitor-1.2.1.apk
+          cp capbuild/android/app/build/outputs/apk/debug/app-debug.apk TabuadaQuest-Capacitor-1.2.2.apk
+          test -s TabuadaQuest-Capacitor-1.2.2.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: TabuadaQuest-Capacitor-APK
-          path: TabuadaQuest-Capacitor-1.2.1.apk
+          path: TabuadaQuest-Capacitor-1.2.2.apk
           retention-days: 30

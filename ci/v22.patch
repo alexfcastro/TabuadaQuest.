@@ -1,0 +1,414 @@
+--- a/index.html
++++ b/index.html
+@@ -698,7 +698,7 @@
+ 
+     <!-- AVATAR / WORLD -->
+     <section id="avatar" class="page">
+-      <div class="section-head"><div><h2>Meu Mundo</h2><p>Avatar, quarto, pets e coleção.</p></div><div class="unlock-progress">🔓 <span id="unlockProgress">0</span>/100 concluídos</div></div>
++      <div class="section-head"><div><h2>Meu Mundo</h2><p>Avatar, quarto, pets e coleção.</p></div><div class="unlock-progress">🔓 <span id="unlockProgress">0</span>/10 concluídos</div></div>
+       <div id="worldTabs" class="world-tabs">
+         <button class="tab active" onclick="setWorldTab('avatar')">👤 Avatar</button>
+         <button class="tab" onclick="setWorldTab('room')">🏠 Quarto</button>
+@@ -1159,6 +1159,27 @@
+     merged.settings.generalQuizCount=Math.min(12,Math.max(5,Number(merged.settings.generalQuizCount)||5));
+     merged.journeyTable=Math.min(10,Math.max(1,Number(merged.journeyTable)||1));
+     merged.journeyLevel=Math.min(10,Math.max(1,Number(merged.journeyLevel)||1));
++
++    // Migração do modelo antigo (10 níveis por tabuada / 100 etapas) para 10 níveis totais.
++    // Ex.: antigo 1-1, 1-2, 1-3 vira 1-1, 2-2, 3-3.
++    const legacyJourney=(merged.journeyTable!==merged.journeyLevel) || merged.journeyCompleted.some(k=>{
++      const m=String(k).match(/^(\d+)-(\d+)$/); return m && m[1]!==m[2];
++    });
++    if(legacyJourney){
++      const doneCount=Math.min(10,new Set(merged.journeyCompleted).size);
++      merged.journeyCompleted=Array.from({length:doneCount},(_,i)=>`${i+1}-${i+1}`);
++      const next=doneCount>=10?10:doneCount+1;
++      merged.journeyLevel=next;
++      merged.journeyTable=next;
++      const learned=new Set((merged.learnedTables||[]).map(Number));
++      for(let n=1;n<=doneCount;n++)learned.add(n);
++      merged.learnedTables=[...learned].filter(n=>n>=1&&n<=10).sort((a,b)=>a-b);
++    }else{
++      // Novo modelo: tabela e nível são sempre equivalentes.
++      const n=Math.min(10,Math.max(1,Number(merged.journeyLevel)||Number(merged.journeyTable)||1));
++      merged.journeyLevel=n;
++      merged.journeyTable=n;
++    }
+     return merged;
+   }catch(e){return clone(DEFAULT_STATE)}
+ }
+@@ -1421,7 +1442,7 @@
+   return sequence;
+ }
+ 
+-/* -------- Jornada: Tabuada 1 nível 1–10, depois Tabuada 2, etc. -------- */
++/* -------- Jornada: 10 níveis; cada nível corresponde à sua tabuada -------- */
+ function journeyKey(table,level){return `${table}-${level}`}
+ function isJourneyDone(table,level){return state.journeyCompleted.includes(journeyKey(table,level))}
+ function journeyQuestionCount(level){
+@@ -1437,43 +1458,50 @@
+   const track=document.getElementById('journeyTrack');
+   if(!track)return;
+ 
+-  const table=state.journeyTable;
+-  const level=state.journeyLevel;
++  const level=Math.min(10,Math.max(1,Number(state.journeyLevel)||1));
++  const table=level;
+   const allDone=journeyFinished();
+ 
+-  document.getElementById('journeyHeading').textContent=allDone?'Jornada completa!':`Tabuada do ${table}`;
+-  document.getElementById('journeyBadge').textContent=allDone?'100 níveis concluídos':`Nível ${level} de 10`;
++  // Mantém os dois campos sincronizados para compatibilidade com saves anteriores.
++  state.journeyLevel=level;
++  state.journeyTable=table;
+ 
+-  const completedInTable=state.journeyCompleted.filter(k=>k.startsWith(table+'-')).length;
++  document.getElementById('journeyHeading').textContent=allDone?'Jornada completa!':`Nível ${level} • Tabuada do ${table}`;
++  document.getElementById('journeyBadge').textContent=allDone?'10 níveis concluídos':`Nível ${level} de 10`;
++
++  const completed=Math.min(10,new Set(state.journeyCompleted||[]).size);
+   document.getElementById('journeyProgressLeft').textContent=allDone
+     ? 'Tabuadas 1 a 10 concluídas'
+-    : `${completedInTable} de 10 níveis concluídos`;
++    : `${completed} de 10 níveis concluídos`;
+   document.getElementById('journeyProgressRight').textContent=allDone
+     ? 'Você chegou ao final!'
+-    : `Atual: nível ${level}`;
++    : `Agora: tabuada do ${table}`;
+ 
+   document.getElementById('journeyDescription').textContent=allDone
+-    ? 'Você concluiu toda a jornada. Agora pode repetir níveis, fazer quiz geral e continuar treinando.'
++    ? 'Você concluiu toda a jornada. Agora pode repetir qualquer tabuada e continuar treinando.'
+     : level===10
+-      ? 'Desafio Mestre: conclua este nível para liberar a próxima tabuada.'
+-      : `Continue do nível ${level}. Seu progresso fica salvo automaticamente.`;
++      ? 'Desafio final: conclua o quiz da tabuada do 10 para terminar a jornada.'
++      : `Neste nível, o quiz é da tabuada do ${table}. Ao concluir, você avança para a tabuada do ${table+1}.`;
+ 
+   track.innerHTML='';
+   for(let n=1;n<=10;n++){
+     const b=document.createElement('button');
+     b.className='level-node';
++    const done=isJourneyDone(n,n);
+ 
+-    if(isJourneyDone(table,n)) b.classList.add('done');
+-    else if(n===level) b.classList.add('current');
+-    else if(n>level) b.classList.add('locked');
++    if(done) b.classList.add('done');
++    else if(n===level && !allDone) b.classList.add('current');
++    else if(n>level || allDone===false) b.classList.add('locked');
+ 
+-    b.innerHTML=`<span>${isJourneyDone(table,n)?'✓':n}</span><small>${n===10?'Mestre':'Nível'}</small>`;
++    b.innerHTML=`<span>${done?'✓':n}</span><small>×${n}</small>`;
+ 
+     if(n===level && !allDone){
+       b.onclick=startJourneyLevel;
+-    }else if(isJourneyDone(table,n)){
+-      b.onclick=()=>startJourneyReplay(table,n);
+-      b.title='Jogar novamente';
++      b.title=`Fazer quiz da tabuada do ${n}`;
++    }else if(done){
++      b.classList.remove('locked');
++      b.onclick=()=>startJourneyReplay(n,n);
++      b.title=`Repetir tabuada do ${n}`;
+     }else{
+       b.disabled=true;
+     }
+@@ -1482,10 +1510,10 @@
+ 
+   const btn=document.getElementById('journeyContinueBtn');
+   if(allDone){
+-    btn.textContent='🏆 Repetir Desafio Mestre';
++    btn.textContent='🏆 Repetir tabuada do 10';
+     btn.onclick=()=>startJourneyReplay(10,10);
+   }else{
+-    btn.textContent=level===10?'🏆 Fazer Desafio Mestre':`▶ Continuar nível ${level}`;
++    btn.textContent=level===10?'🏆 Fazer quiz da tabuada do 10':`▶ Fazer quiz da tabuada do ${table}`;
+     btn.onclick=startJourneyLevel;
+   }
+ }
+@@ -1500,8 +1528,12 @@
+   renderJourney();
+ }
+ function startJourneyLevel(){
+-  const table=state.journeyTable;
+-  const level=state.journeyLevel;
++  const level=Math.min(10,Math.max(1,Number(state.journeyLevel)||1));
++  const table=level;
++
++  // REGRA PRINCIPAL: nível 1 = tabuada 1, nível 2 = tabuada 2 ... nível 10 = tabuada 10.
++  state.journeyTable=table;
++  state.journeyLevel=level;
+ 
+   if(!state.learnedTables.includes(table)){
+     state.learnedTables.push(table);
+@@ -1512,7 +1544,7 @@
+   saveState();
+ 
+   startQuiz({
+-    mode:`Jornada • Tabuada ${table} • Nível ${level}`,
++    mode:`Jornada • Nível ${level} • Tabuada do ${table}`,
+     tables:[table],
+     count:journeyQuestionCount(level),
+     timed:true,
+@@ -1523,44 +1555,45 @@
+   });
+ }
+ function startJourneyReplay(table,level){
++  // Em replay, o nível e a tabuada também são sempre o mesmo número.
++  const n=Math.min(10,Math.max(1,Number(table)||Number(level)||1));
+   startQuiz({
+-    mode:`Repetição • Tabuada ${table} • Nível ${level}`,
+-    tables:[table],
+-    count:journeyQuestionCount(level),
++    mode:`Repetição • Nível ${n} • Tabuada do ${n}`,
++    tables:[n],
++    count:journeyQuestionCount(n),
+     timed:true,
+     reward:false,
+-    journeyReplay:true
++    journeyReplay:true,
++    journeyTable:n,
++    journeyLevel:n
+   });
+ }
+ function advanceJourney(){
+-  const table=state.journeyTable;
+-  const level=state.journeyLevel;
++  const level=Math.min(10,Math.max(1,Number(quiz.config?.journeyLevel)||Number(state.journeyLevel)||1));
++  const table=level;
+   const key=journeyKey(table,level);
+-  const completedLevel=(table-1)*10+level;
++  const completedLevel=level;
+ 
+   if(!state.journeyCompleted.includes(key))state.journeyCompleted.push(key);
+ 
+-  // O nível concluído libera suas recompensas fixas.
+   lastCompletedGlobalLevel=completedLevel;
+   lastLevelRewards=unlockRewardsForLevel(completedLevel);
+ 
+-  state.mastery[table]=Math.max(
+-    state.mastery[table]||20,
+-    Math.min(100,20+level*8)
+-  );
++  const pct=quiz.questions.length ? Math.round((quiz.correct/quiz.questions.length)*100) : 0;
++  state.mastery[table]=Math.max(state.mastery[table]||20,pct);
+ 
+   if(level<10){
+     state.journeyLevel=level+1;
+-  }else if(table<10){
+-    state.journeyTable=table+1;
+-    state.journeyLevel=1;
++    state.journeyTable=level+1;
++  }else{
++    state.journeyLevel=10;
++    state.journeyTable=10;
+   }
+ 
+   saveState();
+   return lastLevelRewards;
+ }
+ 
+-/* -------- Modos extras -------- */
+ function startGeneralQuiz(){
+   const tables=state.learnedTables.length?state.learnedTables:[state.journeyTable||1];
+   startQuiz({mode:'Quiz geral',tables,count:state.settings.generalQuizCount,timed:true,reward:true});
+@@ -2082,7 +2115,7 @@
+ /* Customizer */
+ 
+ /* =========================================================
+-   PROGRESSÃO DE DESBLOQUEIOS — 100 NÍVEIS
++   PROGRESSÃO DE DESBLOQUEIOS — 10 NÍVEIS
+    ========================================================= */
+ let lastLevelRewards=[];
+ let lastCompletedGlobalLevel=0;
+@@ -2094,7 +2127,7 @@
+ /*
+  Cada nível sempre libera uma insígnia.
+  Em diversos níveis também entram itens de personalização.
+- Ao concluir o nível 100, todos os itens de personalização cadastrados já foram liberados.
++ Ao concluir o nível 10, todos os itens de personalização cadastrados já foram liberados.
+ */
+ const SPECIAL_LEVEL_REWARDS={
+   1:[reward('pet-cachorro','🐶','Pet Bolt','pet')],
+@@ -2111,7 +2144,8 @@
+     reward('bag-backpack','🎒','Mochila Escolar','bag'),
+     reward('emote-brilho','✨','Emote Brilho','emote'),
+     reward('scene-park','🌳','Cenário Parque','scene'),
+-    reward('rug-rainbow','🌈','Tapete Colorido','room')
++    reward('rug-rainbow','🌈','Tapete Colorido','room'),
++    reward('pet-gato','🐱','Pet Luna','pet')
+   ],
+ 
+   // NÍVEL 4 — segunda leva
+@@ -2126,7 +2160,9 @@
+     reward('face-sun','🕶️','Óculos Escuros','face'),
+     reward('bag-rocket','🚀','Mochila Foguete','bag'),
+     reward('emote-heart','💖','Emote Coração','emote'),
+-    reward('scene-forest','🌲','Cenário Floresta','scene')
++    reward('scene-forest','🌲','Cenário Floresta','scene'),
++    reward('pet-raposa','🦊','Pet Foxy','pet'),
++    reward('trophy-bronze','🥉','Troféu Bronze','room')
+   ],
+ 
+   // NÍVEL 6 — terceira leva
+@@ -2140,7 +2176,9 @@
+     reward('face-headphones','🎧','Headphone','face'),
+     reward('bag-wings','🪽','Asas','bag'),
+     reward('emote-party','🎉','Emote Festa','emote'),
+-    reward('scene-sunset','🌅','Cenário Pôr do Sol','scene')
++    reward('scene-sunset','🌅','Cenário Pôr do Sol','scene'),
++    reward('pet-panda','🐼','Pet Mochi','pet'),
++    reward('poster-4','🖼️','Quadro Tabuada 4','room')
+   ],
+ 
+   // NÍVEL 8 — quarta leva
+@@ -2155,7 +2193,11 @@
+     reward('face-mask','🎭','Máscara','face'),
+     reward('bag-rainbow','🌈','Mochila Arco-íris','bag'),
+     reward('emote-fire','🔥','Emote Fogo','emote'),
+-    reward('scene-beach','🏖️','Cenário Praia','scene')
++    reward('scene-beach','🏖️','Cenário Praia','scene'),
++    reward('pet-pinguim','🐧','Pet Pingo','pet'),
++    reward('pet-pintinho','🐥','Pet Fubá','pet'),
++    reward('poster-star','⭐','Quadro Estrela','room'),
++    reward('trophy-silver','🥈','Troféu Prata','room')
+   ],
+ 
+   // NÍVEL 10 — quinta leva / itens especiais
+@@ -2172,34 +2214,33 @@
+     reward('bag-robot','🤖','Mochila Robô','bag'),
+     reward('emote-stars','🌟','Emote Estrelas','emote'),
+     reward('scene-galaxy','🌌','Cenário Galáxia','scene'),
+-    reward('trophy-bronze','🥉','Troféu Bronze','room')
++    reward('pet-unicornio','🦄','Pet Stella','pet'),
++    reward('poster-space','🚀','Quadro Espaço','room'),
++    reward('trophy-gold','🏆','Troféu Ouro','room')
+   ],
+-
+-  13:[reward('rug-blue','💙','Tapete Azul','room')],
+-  16:[reward('pet-gato','🐱','Pet Luna','pet')],
+-  17:[reward('poster-2','🖼️','Quadro Tabuada 2','room')],
+-  24:[reward('pet-coelho','🐰','Pet Pipoca','pet')],
+-  29:[reward('rug-green','🌿','Tapete Verde','room')],
+-  31:[reward('poster-4','🖼️','Quadro Tabuada 4','room')],
+-  32:[reward('pet-raposa','🦊','Pet Foxy','pet')],
+-  40:[reward('pet-tartaruga','🐢','Pet Tico','pet')],
+-  48:[reward('pet-panda','🐼','Pet Mochi','pet')],
+-  49:[reward('poster-star','⭐','Quadro Estrela','room')],
+-  50:[reward('trophy-silver','🥈','Troféu Prata','room')],
+-  56:[reward('pet-hamster','🐹','Pet Nino','pet')],
+-  64:[reward('pet-pinguim','🐧','Pet Pingo','pet')],
+-  72:[reward('pet-pintinho','🐥','Pet Fubá','pet')],
+-  78:[reward('rug-galaxy','🌌','Tapete Galáxia','room')],
+-  82:[reward('pet-dragao','🐉','Pet Drako','pet')],
+-  88:[reward('poster-space','🚀','Quadro Espaço','room')],
+-  92:[reward('pet-dino','🦖','Pet Rex','pet')],
+-  100:[reward('pet-unicornio','🦄','Pet Stella','pet'),reward('trophy-gold','🏆','Troféu Ouro','room')]
++  3:[
++    reward('pet-coelho','🐰','Pet Pipoca','pet'),
++    reward('poster-2','🖼️','Quadro Tabuada 2','room')
++  ],
++  5:[
++    reward('pet-tartaruga','🐢','Pet Tico','pet'),
++    reward('rug-blue','💙','Tapete Azul','room')
++  ],
++  7:[
++    reward('pet-hamster','🐹','Pet Nino','pet'),
++    reward('rug-green','🌿','Tapete Verde','room')
++  ],
++  9:[
++    reward('pet-dragao','🐉','Pet Drako','pet'),
++    reward('pet-dino','🦖','Pet Rex','pet'),
++    reward('rug-galaxy','🌌','Tapete Galáxia','room')
++  ]
+ };
+ 
+ const REWARD_LEVEL_BY_ID={};
+ const REWARD_CATALOG={};
+ 
+-for(let lvl=1;lvl<=100;lvl++){
++for(let lvl=1;lvl<=10;lvl++){
+   const badge=reward(`level-badge-${lvl}`,lvl%10===0?'🏆':'🏅',`Insígnia do Nível ${lvl}`,'badge');
+   REWARD_LEVEL_BY_ID[badge.id]=lvl;
+   REWARD_CATALOG[badge.id]=badge;
+@@ -2214,11 +2255,11 @@
+   return [badge,...(SPECIAL_LEVEL_REWARDS[level]||[])];
+ }
+ function completedGlobalLevels(){
+-  return Math.min(100,new Set(state.journeyCompleted||[]).size);
++  return Math.min(10,new Set(state.journeyCompleted||[]).size);
+ }
+ function currentGlobalLevel(){
+-  if(state.journeyCompleted && state.journeyCompleted.includes('10-10'))return 100;
+-  return Math.min(100,Math.max(1,(state.journeyTable-1)*10+state.journeyLevel));
++  if(state.journeyCompleted && state.journeyCompleted.includes('10-10'))return 10;
++  return Math.min(10,Math.max(1,Number(state.journeyLevel)||1));
+ }
+ function isUnlockedId(id){
+   const required=REWARD_LEVEL_BY_ID[id];
+@@ -2321,29 +2362,29 @@
+ }
+ function customRequiredLevel(key,val,style){
+   const id=customRewardId(key,val,style);
+-  return id ? (REWARD_LEVEL_BY_ID[id]||100) : 0;
++  return id ? (REWARD_LEVEL_BY_ID[id]||10) : 0;
+ }
+ 
+ const PET_UNLOCKS={
+   'pet-cachorro':1,
+-  'pet-gato':16,
+-  'pet-coelho':24,
+-  'pet-raposa':32,
+-  'pet-tartaruga':40,
+-  'pet-panda':48,
+-  'pet-hamster':56,
+-  'pet-pinguim':64,
+-  'pet-pintinho':72,
+-  'pet-dragao':82,
+-  'pet-dino':92,
+-  'pet-unicornio':100
++  'pet-gato':2,
++  'pet-coelho':3,
++  'pet-raposa':4,
++  'pet-tartaruga':5,
++  'pet-panda':6,
++  'pet-hamster':7,
++  'pet-pinguim':8,
++  'pet-pintinho':8,
++  'pet-dragao':9,
++  'pet-dino':9,
++  'pet-unicornio':10
+ };
+ 
+-const RUG_UNLOCKS={none:0,rainbow:2,blue:13,green:29,galaxy:78};
+-const POSTER_UNLOCKS={none:0,'2':17,'4':31,star:49,space:88};
++const RUG_UNLOCKS={none:0,rainbow:2,blue:5,green:7,galaxy:9};
++const POSTER_UNLOCKS={none:0,'2':3,'4':6,star:8,space:10};
+ 
+ function roomRequiredLevel(type,value){
+-  return type==='rug'?(RUG_UNLOCKS[value]??100):(POSTER_UNLOCKS[value]??100);
++  return type==='rug'?(RUG_UNLOCKS[value]??10):(POSTER_UNLOCKS[value]??10);
+ }
+ 
+ const customData={
+@@ -2640,8 +2681,8 @@
+   const g=document.getElementById('petGrid');if(!g)return;g.innerHTML='';
+   const progress=completedGlobalLevels();
+ 
+-  [...pets].sort((a,b)=>(PET_UNLOCKS[a[2]]??100)-(PET_UNLOCKS[b[2]]??100)).forEach(([ico,name,id])=>{
+-    const required=PET_UNLOCKS[id]??100;
++  [...pets].sort((a,b)=>(PET_UNLOCKS[a[2]]??10)-(PET_UNLOCKS[b[2]]??10)).forEach(([ico,name,id])=>{
++    const required=PET_UNLOCKS[id]??10;
+     const unlocked=progress>=required;
+     const d=document.createElement('div');
+     d.className='mini-card';
+@@ -2766,7 +2807,7 @@
+   document.getElementById('parentSessions').textContent=w.sessions;
+   document.getElementById('parentQuestions').textContent=w.answers;
+   document.getElementById('parentAccuracy').textContent=acc+'%';
+-  document.getElementById('parentJourney').textContent=`${state.journeyTable} · ${state.journeyLevel}`;
++  document.getElementById('parentJourney').textContent=`Nível ${state.journeyLevel} · Tabuada ${state.journeyLevel}`;
+   const totalStudyEl=document.getElementById('parentTotalTime');
+   if(totalStudyEl) totalStudyEl.textContent=formatStudyTime(state.totalStudySeconds||0);
+   document.getElementById('parentWeekNote').textContent=`Semana: ${getWeekLabel()}`;
