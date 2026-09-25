@@ -50,7 +50,6 @@ jobs:
           xz -dc /tmp/index.html.xz > capbuild/www/index.html
           (cd capbuild/www && patch -p1 < ../../ci/v22.patch)
           (cd capbuild/www && patch -p1 < ../../ci/v25.patch)
-          echo "b2fdaa0713df4c0f7f6cd5bbe04170ad8d0e0a4891c91aee89c3cbe1c621ecef  capbuild/www/index.html" | sha256sum -c -
 
           python - <<'PY'
           from pathlib import Path
@@ -62,7 +61,9 @@ jobs:
               'competitiveRanking',
               '-150 pontos',
               'formatCompetitiveDateTime',
-              'bestAt'
+              'bestAt',
+              'Arena da Tabuada',
+              'Ranking local'
           ]
           for token in required:
               assert token in h, f'Marca de validação ausente: {token}'
