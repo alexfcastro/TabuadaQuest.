@@ -1,0 +1,108 @@
+name: Build Capacitor Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'ci/**'
+      - '.github/workflows/build-capacitor-apk.yml'
+
+concurrency:
+  group: capacitor-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: /dev/null
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Create Capacitor project
+        shell: bash
+        run: |
+          rm -rf capbuild
+          mkdir -p capbuild/www
+          cat ci/index.part* > /tmp/index.html.xz.b64
+          base64 -d /tmp/index.html.xz.b64 > /tmp/index.html.xz
+          xz -dc /tmp/index.html.xz > capbuild/www/index.html
+          echo "9a6883a94dc0fc2d234532458c25ff82ffcda5fc478e23fc830c7bc1f92c958c  capbuild/www/index.html" | sha256sum -c -
+
+          cat > capbuild/package.json <<'JSON'
+          {
+            "name": "tabuada-quest",
+            "version": "1.1.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/core": "8.5.2",
+              "@capacitor/android": "8.5.2"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "8.5.2"
+            }
+          }
+          JSON
+
+          cat > capbuild/capacitor.config.json <<'JSON'
+          {
+            "appId": "com.tabuadaquest.app",
+            "appName": "Tabuada Quest",
+            "webDir": "www",
+            "server": {
+              "androidScheme": "https"
+            },
+            "android": {
+              "allowMixedContent": false
+            }
+          }
+          JSON
+
+          cd capbuild
+          npm install --no-audit --no-fund
+          npx cap add android
+          npx cap sync android
+
+          # Identificar esta compilação como uma nova versão.
+          sed -i 's/versionCode 1/versionCode 5/' android/app/build.gradle || true
+          sed -i 's/versionName "1.0"/versionName "1.1.0"/' android/app/build.gradle || true
+
+      - name: Build Capacitor APK
+        working-directory: capbuild/android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          cp capbuild/android/app/build/outputs/apk/debug/app-debug.apk TabuadaQuest-Capacitor-1.1.0.apk
+          test -s TabuadaQuest-Capacitor-1.1.0.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TabuadaQuest-Capacitor-APK
+          path: TabuadaQuest-Capacitor-1.1.0.apk
+          retention-days: 30
