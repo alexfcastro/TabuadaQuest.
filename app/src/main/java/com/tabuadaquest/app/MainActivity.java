@@ -31,10 +31,12 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
 
-        webView = new WebView(getApplicationContext());
+        // Use o contexto da Activity: é o caminho mais compatível para WebView em Android/Samsung.
+        webView = new WebView(this);
         webView.setBackgroundColor(Color.WHITE);
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
+        webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -59,7 +61,7 @@ public class MainActivity extends Activity {
 
         setContentView(root);
 
-        // Caminho mais simples e compatível para um aplicativo totalmente offline.
+        // O jogo é totalmente local/offline e não depende de servidor.
         webView.loadUrl("file:///android_asset/index.html");
         webView.requestFocus(View.FOCUS_DOWN);
     }
